@@ -119,9 +119,9 @@ def read_from_brat(path_to_brat_folder):
         text = read_file(text_file)
         annotations_raw = read_file(ann_file)
         entities = extract_entities_from_brat(annotations_raw, text)
-        #entity_labels = extract_entity_labels(annotations_raw)
-        #notes = extract_entity_notes(annotations_raw)
-        #set_labels_and_notes(entities, entity_labels, notes)
+        entity_labels = extract_entity_labels(annotations_raw)
+        notes = extract_entity_notes(annotations_raw)
+        set_labels_and_notes(entities, entity_labels, notes)
         relations = extract_relations_from_brat(annotations_raw)
         document = Document(doc_id=doc_id, text=text,
                             entities=entities, relations=relations)
