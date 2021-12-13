@@ -6,8 +6,10 @@ import os
 import re
 
 BRAT_FORMAT = r'(?P<entity_id>^T[0-9]+)\t(?P<type>[a-zA-Z\_]+) (?P<positions>[0-9; ]+)\t(?P<text>.*)'
+BRAT_FORMAT = r'(?P<entity_id>^T[0-9\_a-z]+)\t(?P<type>[a-zA-Z\_\-]+) (?P<positions>[0-9; ]+)\t(?P<text>.*)'
 # N1      Reference T1 GeneOntology:900   CCNG1
 ANNOTATION = r'(?P<id>^N[0-9]+)\tReference (?P<entity_id>T[0-9]+) (?P<ontology_name>[a-zA-Z\_]+)\:(?P<concept_id>[a-zA-Z\_0-9]+)\t(?P<concept_name>.*)'
+NOTE = r'#\d+\tAnnotatorNotes (?P<entity_id>T[0-9]+)\t(?P<note>.*)'
 
 
 class AnnFilesIterator(object):
@@ -38,6 +40,10 @@ def parse_annotation(annotation_raw):
 def parse_label_annotation(annotation_raw):
     annotation = re.search(ANNOTATION, annotation_raw).groupdict()
     return annotation['entity_id'], annotation['concept_id']
+
+def parse_note(annotation_raw):
+    annotation = re.search(NOTE, annotation_raw).groupdict()
+    return annotation['entity_id'], annotation['note']
 
 
 def extract_entities_from_brat(annotations_raw: str, text: str) -> List[Entity]:
@@ -71,9 +77,19 @@ def extract_entity_labels(annotations_raw: str):
     return entity_labels
 
 
-def set_labels(entities, entity_labels):
+def extract_entity_notes(annotations_raw: str):
+    entity_notes = {}
+    for annotation_raw in annotations_raw.split('\n'):
+        if not annotation_raw.startswith('#'): continue
+        entity_id, note = parse_note(annotation_raw)
+        entity_notes[entity_id] = note
+    return entity_notes
+
+
+def set_labels_and_notes(entities, entity_labels, notes):
     for entity_id, entity in entities.items():
         entity.label = entity_labels.get(entity.entity_id, None)
+        entity.note = notes.get(entity.entity_id, None)
 
 
 def get_entities_id(relation_line):
@@ -99,13 +115,15 @@ def read_from_brat(path_to_brat_folder):
     document_id = 0
     documents = []
     for text_file, ann_file in AnnFilesIterator(path_to_brat_folder):
+        doc_id = os.path.basename(text_file).replace('.txt', '')
         text = read_file(text_file)
         annotations_raw = read_file(ann_file)
         entities = extract_entities_from_brat(annotations_raw, text)
-        entity_labels = extract_entity_labels(annotations_raw)
-        set_labels(entities, entity_labels)
+        #entity_labels = extract_entity_labels(annotations_raw)
+        #notes = extract_entity_notes(annotations_raw)
+        #set_labels_and_notes(entities, entity_labels, notes)
         relations = extract_relations_from_brat(annotations_raw)
-        document = Document(doc_id=document_id, text=text,
+        document = Document(doc_id=doc_id, text=text,
                             entities=entities, relations=relations)
         documents.append(document)
         document_id += 1
@@ -130,6 +148,13 @@ def save_ann_file(path_to_save: str, document: Document):
             if not isinstance(relation.entity_id_2, str) or not relation.entity_id_2.startswith('T'):
                 relation.entity_id_2 = f'T{relation.entity_id_2}'
             output_stream.write(f'{relation.relation_id}\t{relation.type} Arg1:{relation.entity_id_1} Arg2:{relation.entity_id_2}\n')
+        nid = 1
+        for entity in document.entities.values():
+             if entity.label is None: continue
+             ontology_name = 'GeneOntology' if entity.type == 'PRGE_PRED' else 'DiseaseDB'
+             output_stream.write(f'N{nid}\tReference {entity.entity_id} {ontology_name}:{entity.label}\t{entity.concept_name}\n')
+             nid += 1
+
 
 
 def save_brat(data, path_to_save: str):
