@@ -38,8 +38,11 @@ def parse_annotation(annotation_raw):
 
 
 def parse_label_annotation(annotation_raw):
-    annotation = re.search(ANNOTATION, annotation_raw).groupdict()
-    return annotation['entity_id'], annotation['concept_id']
+    try:
+        annotation = re.search(ANNOTATION, annotation_raw).groupdict()
+        return annotation['entity_id'], annotation['concept_id']
+    except:
+        return None, None
 
 def parse_note(annotation_raw):
     annotation = re.search(NOTE, annotation_raw).groupdict()
