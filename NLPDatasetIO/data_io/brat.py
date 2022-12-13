@@ -154,7 +154,7 @@ def save_ann_file(path_to_save: str, document: Document):
         nid = 1
         for entity in document.entities.values():
              if entity.label is None: continue
-             ontology_name = 'GeneOntology' if entity.type == 'PRGE_PRED' else 'DiseaseDB'
+             ontology_name = 'GeneOntology' if 'PRGE' in entity.type or 'target' in entity.type else 'DiseaseDB'
              output_stream.write(f'N{nid}\tReference {entity.entity_id} {ontology_name}:{entity.label}\t{entity.concept_name}\n')
              nid += 1
 
